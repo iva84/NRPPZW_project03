@@ -25,6 +25,7 @@ var myGameArea;
 var stars = [];
 var asteroids = [];
 var player = null;
+var ASTEROIDS_NO = 5;
 
 /* ANIMATION SETTINGS */
 var backgroundSound = new Audio("assets/hyperspace.mp3");
@@ -37,8 +38,10 @@ var starsAnimationId;
 /* CONSTANTS */
 const BEST_DURATION = "bestDuration";
 const STAR_SPEED = 0.5;
-const ASTEROIDS_NO = 5;
-const PLAYER_SIZE = 80;
+const PLAYER_SIZE = 50;
+const GENERATE_ASTEROID_SEC = 15;
+const MAX_SIZE = 100;
+const MIN_SIZE = 20;
 
 /* EVENTS */
 
@@ -61,25 +64,25 @@ function checkKey(e) {
 window.addEventListener("resize", function () {
   myGameArea.clear();
 
+  // cancel game animation
   if (gameAreaFrameId) {
     cancelAnimationFrame(gameAreaFrameId);
   }
-  if (starsAnimationId) {
-    cancelAnimationFrame(starsAnimationId);
-  }
 
+  // change canvas dimension
   myGameArea.canvas.width = window.innerWidth;
   myGameArea.canvas.height = window.innerHeight;
 
+  // regenerate stars
   stars = [];
   createStars();
-  updateStars();
 
   // show start container
   let startContainer = document.querySelector(".start-container");
   startContainer.style.display = "flex";
 });
 
+// function that generate stars all over screen
 function createStars() {
   for (let i = 0; i < myGameArea.canvas.height; i++) {
     let rnd = Math.random() * myGameArea.canvas.width;
@@ -88,17 +91,20 @@ function createStars() {
   }
 }
 
+// generates initial number of asteroids
 function createAsteroids() {
   for (let i = 0; i < ASTEROIDS_NO; i++) {
     createAsteroid();
   }
 }
 
+// generate asteroid and save it
 function createAsteroid() {
   let asteroid = new asteroidComponent();
   asteroids.push(asteroid);
 }
 
+// generate player
 function createPlayer() {
   player = new playerComponent();
 }
@@ -106,10 +112,12 @@ function createPlayer() {
 // game definition
 myGameArea = {
   initGame: function () {
+    // init canvas settings
     this.canvas = document.getElementById("canvas");
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.context = this.canvas.getContext("2d");
+    // generate only stars (game is not start yet)
     stars = [];
     createStars();
     updateStars();
@@ -130,15 +138,20 @@ myGameArea = {
 
     // start animation
     updateGameArea();
+
+    // generate new asteroid periodically
+    setInterval(() => {
+      createAsteroid();
+      ASTEROIDS_NO++;
+    }, GENERATE_ASTEROID_SEC * 1000);
   },
   stop: function () {
     // play collision sound
     collisionSound.play();
 
+    // show result to user and stop animation
     showResult();
     cancelAnimationFrame(gameAreaFrameId);
-    //let startContainer = document.querySelector(".start-container");
-    //startContainer.style.display = "flex";
 
     // stop and reset background sound and collision sound
     backgroundSound.pause();
@@ -146,6 +159,7 @@ myGameArea = {
     collisionSound.currentTime = 0;
   },
   clear: function () {
+    // clear canvas frame
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   },
 };
@@ -169,7 +183,9 @@ function startGame() {
   startTime = Date.now();
 }
 
+// star component
 function starComponent(x, y) {
+  // sets random width and height of star
   const rnd = Math.random() + 0.5;
   this.width = rnd;
   this.height = rnd;
@@ -177,6 +193,7 @@ function starComponent(x, y) {
   this.x = x;
   this.y = y;
 
+  // updates star on rerender
   this.update = function () {
     ctx = myGameArea.context;
     ctx.save();
@@ -186,6 +203,7 @@ function starComponent(x, y) {
     ctx.restore();
   };
 
+  // calculates new star position -> horizontally move
   this.newPos = function () {
     if (this.x - this.width < 0) {
       this.speed_x = STAR_SPEED;
@@ -197,9 +215,11 @@ function starComponent(x, y) {
   };
 }
 
+// asteroid component
 function asteroidComponent() {
   // width and height
-  const dimension = Math.floor(Math.random() * 30) + 20;
+  const dimension =
+    Math.floor(Math.random() * (MAX_SIZE - MIN_SIZE)) + MIN_SIZE;
   this.width = dimension;
   this.height = dimension;
 
@@ -216,23 +236,31 @@ function asteroidComponent() {
   // speed
   this.speed = Math.random() * 3 + 1;
 
+  // color
+  this.color = randomGrayColor();
+
   // updates asteroid
   this.update = function () {
     ctx = myGameArea.context;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "yellow";
-    ctx.shadowBlur = 50;
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = 30;
+    ctx.strokeStyle = "#ffffff";
+    ctx.strokeRect(this.width / -2, this.height / -2, this.width, this.height);
     ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height);
     ctx.restore();
   };
 
+  /*
   console.log(
     `path=${this.path} x=${this.x} y=${this.y} width=${this.width} height=${this.height}`
   );
+  */
 
   // calculates if collision is detected between current asteroid and player
+  // actualy checks if two rectangles are overlaping
   this.checkCollision = function () {
     // we need to substract width/2 and height/2 becouse of centering player and asteroids
     return (
@@ -285,23 +313,29 @@ function asteroidComponent() {
 
 // player component
 function playerComponent() {
+  // player's width and height are contant
   this.width = PLAYER_SIZE;
   this.height = PLAYER_SIZE;
 
+  // player's start position
   this.x = myGameArea.canvas.width / 2;
   this.y = myGameArea.canvas.height / 2;
 
+  // updates player position (this is reqired because od rerender)
   this.update = function () {
     ctx = myGameArea.context;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = "red";
-    ctx.shadowColor = "yellow";
-    ctx.shadowBlur = 20;
-    ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height);
+    ctx.fillStyle = "#ff0000";
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = 30;
+    ctx.strokeStyle = "#ffffff";
+    ctx.strokeRect(this.width / -2, this.height / -2, this.width, this.height);
+    ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height); // translate to center
     ctx.restore();
   };
 
+  // moves player based on key pressed
   this.move = function (direction) {
     if (direction === KeyCode.LEFT) {
       if (this.x - this.width / 2 > 0) {
@@ -309,40 +343,44 @@ function playerComponent() {
       } else {
         this.x = this.width / 2; // translate
       }
-      console.log("left", this.x, this.y, this.width, this.height);
+      //console.log("left", this.x, this.y, this.width, this.height);
     } else if (direction === KeyCode.UP) {
       if (this.y - this.height / 2 > 0) {
         this.y -= this.height / 2;
       } else {
         this.y = this.height / 2; // translate
       }
-      console.log("up", this.x, this.y, this.width, this.height);
+      //console.log("up", this.x, this.y, this.width, this.height);
     } else if (direction === KeyCode.RIGHT) {
       if (this.x + this.width < myGameArea.canvas.width) {
         this.x += this.width / 2;
       } else {
         this.x = myGameArea.canvas.width - this.width / 2; // translate
       }
-      console.log("right", this.x, this.y, this.width, this.height);
+      //console.log("right", this.x, this.y, this.width, this.height);
     } else if (direction === KeyCode.DOWN) {
       if (this.y + this.height < myGameArea.canvas.height) {
         this.y += this.height / 2;
       } else {
         this.y = myGameArea.canvas.height - this.height / 2; // translate
       }
-      console.log("down", this.x, this.y, this.width, this.height);
+      //console.log("down", this.x, this.y, this.width, this.height);
     }
   };
 }
 
+// calculates asteroid start position
+// asteroid must not be visible
 function createStartPosition(idx, dimension) {
   let x;
   let y;
   let path;
 
+  /*
   console.log(
     `----------\ncanvas: ${myGameArea.canvas.width} ${myGameArea.canvas.height} dim=${dimension}`
   );
+  */
   switch (idx) {
     case 1:
       // left up corner
@@ -399,23 +437,29 @@ function createStartPosition(idx, dimension) {
       break;
   }
 
-  console.log(`calculated(${idx}): ${x} ${y} ${path}`);
+  //console.log(`calculated(${idx}): ${x} ${y} ${path}`);
   return { x: x, y: y, path: path };
 }
 
+// updates stars (only when game is not start)
 function updateStars() {
   starsFrameId = requestAnimationFrame(updateStars);
+
+  // clear canvas frame
   myGameArea.clear();
+
+  // Update stars position
   stars.forEach((star) => {
     star.newPos();
     star.update();
   });
 }
 
+// updates canvas
 function updateGameArea() {
   gameAreaFrameId = requestAnimationFrame(updateGameArea);
 
-  // clear frame
+  // clear canvas frame
   myGameArea.clear();
 
   // update stars position
@@ -427,7 +471,9 @@ function updateGameArea() {
   // remove asteroid if gone
   asteroids = asteroids.filter((asteroid) => !asteroid.isAsteroidGone());
 
-  // create new asteroids
+  //console.log(asteroids.length);
+
+  // create new aseroid if some is gone
   if (asteroids.length < ASTEROIDS_NO) {
     createAsteroid();
   }
@@ -451,8 +497,9 @@ function updateGameArea() {
   });
 }
 
+// display result to user
 function showResult() {
-  console.log("Animation stopped");
+  //console.log("Animation stopped");
 
   // calculate duration
   let duration = endTime - startTime;
@@ -472,14 +519,14 @@ function showResult() {
   if (best == null || (best && duration > Number(best))) {
     // set new best time
     storage.setItem(BEST_DURATION, duration);
-    message.innerHTML = `Duration: ${
-      duration / 1000
-    } seconds.<br/>Congrats! You have best duration.`;
+    message.innerHTML = `Duration: ${formatTime(
+      duration
+    )}<br/>Congrats! You have best duration.`;
   } else {
     // this is not best time
-    message.innerHTML = `Duration: ${
-      duration / 1000
-    } seconds.<br/>Best duration: ${best / 1000} seconds`;
+    message.innerHTML = `Duration: ${formatTime(
+      duration
+    )}<br/>Best duration: ${formatTime(Number(best))}`;
   }
 
   // display message
@@ -501,4 +548,19 @@ function showResult() {
     okBtn.style.display = "none";
     startBtn.style.display = "flex";
   };
+}
+
+// generates random grey color (r = g = b)
+function randomGrayColor() {
+  var rnd = Math.floor(Math.random() * 256);
+  return `rgb(${rnd}, ${rnd}, ${rnd})`;
+}
+
+// formatting time like 00:00:000
+function formatTime(milliseconds) {
+  let date = new Date(milliseconds);
+  return `${date.getUTCMinutes().toString().padStart(2, "0")}:${date
+    .getSeconds()
+    .toString()
+    .padStart(2, "0")}:${date.getMilliseconds().toString().padStart(3, "0")}`;
 }
