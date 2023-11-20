@@ -85,6 +85,11 @@ window.addEventListener("resize", function () {
   startContainer.style.display = "flex";
 });
 
+// start background music again when it is over
+backgroundSound.addEventListener("ended", () => {
+  backgroundSound.play();
+});
+
 // function that generate stars all over screen
 function createStars() {
   for (let i = 0; i < myGameArea.canvas.height; i++) {
