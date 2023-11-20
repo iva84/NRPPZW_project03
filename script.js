@@ -36,6 +36,7 @@ var startTime;
 var endTime;
 var gameAreaFrameId;
 var starsAnimationId;
+var asteroidGenInterval;
 
 /* CONSTANTS */
 const BEST_DURATION = "bestDuration";
@@ -159,7 +160,7 @@ myGameArea = {
     updateGameArea();
 
     // generate new asteroid periodically
-    setInterval(() => {
+    asteroidGenInterval = setInterval(() => {
       createAsteroid();
       ASTEROIDS_NO++;
     }, GENERATE_ASTEROID_SEC * 1000);
@@ -178,6 +179,7 @@ myGameArea = {
     collisionSound.currentTime = 0;
 
     // reset number of asteroids
+    clearInterval(asteroidGenInterval);
     ASTEROIDS_NO = 5;
   },
   clear: function () {
