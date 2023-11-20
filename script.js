@@ -26,6 +26,8 @@ var stars = [];
 var asteroids = [];
 var player = null;
 var ASTEROIDS_NO = 5;
+var bestStoredTime;
+var currentPlayerTime;
 
 /* ANIMATION SETTINGS */
 var backgroundSound = new Audio("assets/hyperspace.mp3");
@@ -136,6 +138,23 @@ myGameArea = {
     createAsteroids();
     createPlayer();
 
+    // best stored time
+    let best = localStorage.getItem(BEST_DURATION);
+    bestStoredTime = new timeComponent(
+      "Najbolje vrijeme",
+      best ? Number(best) : 0,
+      myGameArea.canvas.width - 300,
+      50
+    );
+
+    // current player's time
+    currentPlayerTime = new timeComponent(
+      "Vrijeme",
+      Date.now() - startTime,
+      myGameArea.canvas.width - 300,
+      100
+    );
+
     // start animation
     updateGameArea();
 
@@ -157,6 +176,9 @@ myGameArea = {
     backgroundSound.pause();
     backgroundSound.currentTime = 0;
     collisionSound.currentTime = 0;
+
+    // reset number of asteroids
+    ASTEROIDS_NO = 5;
   },
   clear: function () {
     // clear canvas frame
@@ -369,6 +391,28 @@ function playerComponent() {
   };
 }
 
+// time component
+// text, x and y are constant
+function timeComponent(text, time, x, y) {
+  this.text = text;
+  this.time = time;
+  this.x = x;
+  this.y = y;
+
+  // updates time if is not null and rerender component
+  this.update = function (newTime = null) {
+    if (newTime !== null) {
+      this.time = newTime;
+    }
+    ctx = myGameArea.context;
+    ctx.save();
+    ctx.font = "20px Verdana";
+    ctx.fillStyle = "#f1f1f1";
+    ctx.fillText(`${this.text}: ${formatTime(this.time)}`, this.x, this.y);
+    ctx.restore();
+  };
+}
+
 // calculates asteroid start position
 // asteroid must not be visible
 function createStartPosition(idx, dimension) {
@@ -486,6 +530,10 @@ function updateGameArea() {
 
   // update player
   player.update();
+
+  // update time
+  bestStoredTime.update();
+  currentPlayerTime.update(Date.now() - startTime);
 
   // check is collision detected
   asteroids.forEach((asteroid) => {
